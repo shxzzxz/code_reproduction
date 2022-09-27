@@ -3,7 +3,7 @@ from torch import nn
 
 class BasicBlock(nn.Module):
     expandsion = 1
-    def __init__(self,input_dim, layer_dim, stride) -> None:
+    def __init__(self,input_dim, layer_dim, stride, **kwargs) -> None:
         super(BasicBlock,self).__init__()
         output_dim = layer_dim*self.expandsion
         if input_dim != output_dim or stride != 1:
@@ -43,14 +43,14 @@ class BottleNeckBlock(nn.Module):
                 nn.BatchNorm2d(output_dim))
         else:
             self.downsample = None
-        self.conv1 = nn.Conv2d(in_channels=input_dim, out_channels=layer_dim, kernel_size=1, stride=stride, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(in_channels=input_dim, out_channels=layer_dim, kernel_size=1, stride=1, padding=1, bias=False)
         self.relu = nn.ReLU()
         self.bn1 = nn.BatchNorm2d(layer_dim)
 
-        self.conv2 = nn.Conv2d(in_channels=output_dim, out_channels=layer_dim, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(in_channels=layer_dim, out_channels=layer_dim, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(layer_dim)
 
-        self.conv3 = nn.Conv2d(in_channels=input_dim, out_channels=output_dim, kernel_size=1, stride=1, padding=1, bias=False)
+        self.conv3 = nn.Conv2d(in_channels=layer_dim, out_channels=output_dim, kernel_size=1, stride=1, padding=1, bias=False)
         self.bn3 = nn.BatchNorm2d(output_dim)
     def forward(self,x):
         identity = x
@@ -87,7 +87,7 @@ class ResNet(nn.Module):
         self.conv5_x = self._make_layer(block, 512, block_nums[3])
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))  # output size = (1, 1)
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(512 * block.expandsion, num_classes)
 
     def _make_layer(self,block,layer_dim,block_num,stride=2):
 
@@ -98,7 +98,7 @@ class ResNet(nn.Module):
         self.in_channel = block.expandsion * layer_dim
 
         for _ in range(1,block_num):
-            layer_list.append(self.block(self.in_channel, layer_dim, stride=1))
+            layer_list.append(block(self.in_channel, layer_dim, stride=1))
         
         return  nn.Sequential(*layer_list)
     
@@ -120,7 +120,10 @@ class ResNet(nn.Module):
 def resnet34(num_classes=1000):
     return ResNet(BasicBlock,[2,2,2,2],num_classes=num_classes)
 
-def __main__():
-    net = resnet34()
+def resnet50(num_classes=1000):
+    return ResNet(BottleNeckBlock,[3,4,6,3],num_classes=num_classes)
+
+if __name__ == "__main__":
+    net = resnet50()
     print(net)
 

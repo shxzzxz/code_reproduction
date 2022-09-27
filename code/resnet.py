@@ -43,14 +43,14 @@ class BottleNeckBlock(nn.Module):
                 nn.BatchNorm2d(output_dim))
         else:
             self.downsample = None
-        self.conv1 = nn.Conv2d(in_channels=input_dim, out_channels=layer_dim, kernel_size=1, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(in_channels=input_dim, out_channels=layer_dim, kernel_size=1, stride=1, bias=False)
         self.relu = nn.ReLU()
         self.bn1 = nn.BatchNorm2d(layer_dim)
 
         self.conv2 = nn.Conv2d(in_channels=layer_dim, out_channels=layer_dim, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(layer_dim)
 
-        self.conv3 = nn.Conv2d(in_channels=layer_dim, out_channels=output_dim, kernel_size=1, stride=1, padding=1, bias=False)
+        self.conv3 = nn.Conv2d(in_channels=layer_dim, out_channels=output_dim, kernel_size=1, stride=1, bias=False)
         self.bn3 = nn.BatchNorm2d(output_dim)
     def forward(self,x):
         identity = x

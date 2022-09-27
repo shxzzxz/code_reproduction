@@ -34,23 +34,27 @@ class BasicBlock(nn.Module):
 
 class BottleNeckBlock(nn.Module):
     expandsion = 4
-    def __init__(self, input_dim, layer_dim, stride) -> None:
+    def __init__(self, input_dim, layer_dim, stride, groups=1, width_per_group=64) -> None:
         super(BottleNeckBlock,self).__init__()
         output_dim = layer_dim*self.expandsion
+
+        width = int(layer_dim * (width_per_group / 64.)) * groups    # 此处乘子未进行验证，直接copy得到
+
         if input_dim != output_dim or stride != 1:
             self.downsample = nn.Sequential(
                 nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(output_dim))
         else:
             self.downsample = None
-        self.conv1 = nn.Conv2d(in_channels=input_dim, out_channels=layer_dim, kernel_size=1, stride=1, bias=False)
+        self.conv1 = nn.Conv2d(in_channels=input_dim, out_channels=width, kernel_size=1, stride=1, bias=False)
         self.relu = nn.ReLU()
-        self.bn1 = nn.BatchNorm2d(layer_dim)
+        self.bn1 = nn.BatchNorm2d(width)
 
-        self.conv2 = nn.Conv2d(in_channels=layer_dim, out_channels=layer_dim, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(layer_dim)
+        self.conv2 = nn.Conv2d(in_channels=width, out_channels=width, kernel_size=3, 
+                                stride=stride, padding=1, bias=False, groups=groups)
+        self.bn2 = nn.BatchNorm2d(width)
 
-        self.conv3 = nn.Conv2d(in_channels=layer_dim, out_channels=output_dim, kernel_size=1, stride=1, bias=False)
+        self.conv3 = nn.Conv2d(in_channels=width, out_channels=output_dim, kernel_size=1, stride=1, bias=False)
         self.bn3 = nn.BatchNorm2d(output_dim)
     def forward(self,x):
         identity = x
@@ -71,8 +75,12 @@ class BottleNeckBlock(nn.Module):
         x = self.relu(x)
 class ResNet(nn.Module):
 
-    def __init__(self,block,block_nums,num_classes=1000) -> None:
+    def __init__(self,block,block_nums,num_classes=1000, groups=1,
+                 width_per_group=64) -> None:
         super(ResNet,self).__init__()
+        self.groups = groups
+        self.width_per_group = width_per_group
+
         self.in_channel = 64
 
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, bias=False)
@@ -93,12 +101,14 @@ class ResNet(nn.Module):
 
         layer_list = []
 
-        layer_list.append(block(self.in_channel, layer_dim, stride=stride))
+        layer_list.append(block(self.in_channel, layer_dim, stride=stride, groups=self.groups,
+                            width_per_group=self.width_per_group))
 
         self.in_channel = block.expandsion * layer_dim
 
         for _ in range(1,block_num):
-            layer_list.append(block(self.in_channel, layer_dim, stride=1))
+            layer_list.append(block(self.in_channel, layer_dim, stride=1, groups=self.groups,
+                            width_per_group=self.width_per_group))
         
         return  nn.Sequential(*layer_list)
     
@@ -123,7 +133,32 @@ def resnet34(num_classes=1000):
 def resnet50(num_classes=1000):
     return ResNet(BottleNeckBlock,[3,4,6,3],num_classes=num_classes)
 
+
+def resnet101(num_classes=1000):
+    # https://download.pytorch.org/models/resnet101-5d3b4d8f.pth
+    return ResNet(BottleNeckBlock, [3, 4, 23, 3], num_classes=num_classes)
+
+
+def resnext50_32x4d(num_classes=1000):
+    # https://download.pytorch.org/models/resnext50_32x4d-7cdf4587.pth
+    groups = 32
+    width_per_group = 4
+    return ResNet(BottleNeckBlock, [3, 4, 6, 3],
+                  num_classes=num_classes,
+                  groups=groups,
+                  width_per_group=width_per_group)
+
+
+def resnext101_32x8d(num_classes=1000, include_top=True):
+    # https://download.pytorch.org/models/resnext101_32x8d-8ba56ff5.pth
+    groups = 32
+    width_per_group = 8
+    return ResNet(BottleNeckBlock, [3, 4, 23, 3],
+                  num_classes=num_classes,
+                  groups=groups,
+                  width_per_group=width_per_group)
+
 if __name__ == "__main__":
-    net = resnet50()
+    net = resnext50_32x4d()
     print(net)
 
